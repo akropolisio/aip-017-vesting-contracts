@@ -5,6 +5,7 @@ on: workflow_dispatch
 env:
   FOUNDRY_PROFILE: ci
   MAINNET_RPC: ${{ secrets.MAINNET_RPC }}
+  ETHERSCAN_MAINNET_KEY: ${{ secrets.ETHERSCAN_MAINNET_KEY }}
 
 jobs:
   check:
