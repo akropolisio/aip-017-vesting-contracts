@@ -10,110 +10,194 @@ import {VestingCliff} from "../src/VestingCliff.sol";
 import {IAkroToken} from "./IAkroToken.sol";
 
 contract VestingTest is Test {
-    VestingCliff public teamVesting;
+    Vesting public teamVestingMain;
+    Vesting public teamVesting1;
+    Vesting public teamVesting2;
+
     Vesting public foundationVesting;
-    Vesting public ecosystemVesting;
 
-    address constant multisig = 0xC5aF91F7D10dDe118992ecf536Ed227f276EC60D;
-    address constant beneficiary = 0xC5aF91F7D10dDe118992ecf536Ed227f276EC60D;
-    uint64 constant startTimestamp = 1719964800;
-    uint64 constant durationSeconds = 126230400;
-    uint64 constant cliffSeconds = 31536000;
+    Vesting public ecosystemVestingMain;
+    Vesting public ecosystemVesting1;
+    Vesting public ecosystemVesting2;
 
-    uint256 constant teamVestingAmount = 2000000000;
-    uint256 constant foundationVestingAmount = 900000000;
-    uint256 constant ecosystemVestingAmount = 6000000000;
+    address constant oldMultisig = 0xC5aF91F7D10dDe118992ecf536Ed227f276EC60D;
+    address constant multisig1 = 0xae4Af0301AFE8f352D2b47cbAc54E79528Ad91AE;
+    address constant multisig2 = 0xd5a26CA4a9367035c3f18eBc9eA58FC53e0EB2E9;
+
+    uint64 constant teamStartTimestamp = 1751500800; // 2025-07-03T00:00:00.000Z
+    uint64 constant teamDurationSeconds = 94694400; // 2028-07-03T00:00:00.000Z - 2025-07-03T00:00:00.000Z
+
+    uint64 constant startTimestamp = 1719964800; // 2024-07-03T00:00:00.000Z
+    uint64 constant durationSeconds = 126230400; // 2028-07-03T00:00:00.000Z - 2024-07-03T00:00:00.000Z
 
     IAkroToken constant akroToken =
         IAkroToken(0x8Ab7404063Ec4DBcfd4598215992DC3F8EC853d7);
 
     function setUp() public {
-        teamVesting = new VestingCliff(
-            beneficiary, startTimestamp, durationSeconds, cliffSeconds
+        teamVestingMain = new Vesting(
+            "",
+            multisig1,
+            teamStartTimestamp,
+            teamDurationSeconds
         );
-        foundationVesting =
-            new Vesting(beneficiary, startTimestamp, durationSeconds);
+        teamVesting1 = new Vesting("kpi1", multisig2, startTimestamp, 1);
+        teamVesting2 = new Vesting("kpi2", multisig2, startTimestamp, 1);
 
-        ecosystemVesting =
-            new Vesting(beneficiary, startTimestamp, durationSeconds);
+        foundationVesting = new Vesting(
+            "",
+            multisig1,
+            startTimestamp,
+            durationSeconds
+        );
 
-        vm.startPrank(multisig);
-        akroToken.mint(address(teamVesting), teamVestingAmount);
-        akroToken.mint(address(foundationVesting), foundationVestingAmount);
-        akroToken.mint(address(ecosystemVesting), ecosystemVestingAmount);
-        vm.stopPrank();
+        ecosystemVestingMain = new Vesting(
+            "",
+            multisig1,
+            startTimestamp,
+            durationSeconds
+        );
+        ecosystemVesting1 = new Vesting("kpi1", multisig2, startTimestamp, 1);
+        ecosystemVesting2 = new Vesting("kpi2", multisig2, startTimestamp, 1);
     }
 
     function test_contractsDeploy() public view {
-        // Vesting cliff
-        assertEq(teamVesting.owner(), beneficiary);
-        assertEq(teamVesting.start(), startTimestamp);
-        assertEq(teamVesting.duration(), durationSeconds);
-        assertEq(teamVesting.cliff(), startTimestamp + cliffSeconds);
+        // Team Vesting Main
+        assertEq(teamVestingMain.owner(), multisig1);
+        assertEq(teamVestingMain.start(), teamStartTimestamp);
+        assertEq(teamVestingMain.duration(), teamDurationSeconds);
+        // Team Vesting 1
+        assertEq(teamVesting1.owner(), multisig2);
+        assertEq(teamVesting1.start(), startTimestamp);
+        assertEq(teamVesting1.duration(), 1);
+        // Team Vesting 2
+        assertEq(teamVesting2.owner(), multisig2);
+        assertEq(teamVesting2.start(), startTimestamp);
+        assertEq(teamVesting2.duration(), 1);
 
-        // Vesting #1
-        assertEq(foundationVesting.owner(), beneficiary);
+        // Foundation Vesting
+        assertEq(foundationVesting.owner(), multisig1);
         assertEq(foundationVesting.start(), startTimestamp);
         assertEq(foundationVesting.duration(), durationSeconds);
 
-        // Vesting #2
-        assertEq(ecosystemVesting.owner(), beneficiary);
-        assertEq(ecosystemVesting.start(), startTimestamp);
-        assertEq(ecosystemVesting.duration(), durationSeconds);
+        // Ecosystem Vesting Main
+        assertEq(ecosystemVestingMain.owner(), multisig1);
+        assertEq(ecosystemVestingMain.start(), startTimestamp);
+        assertEq(ecosystemVestingMain.duration(), durationSeconds);
+        // Ecosystem Vesting 1
+        assertEq(ecosystemVesting1.owner(), multisig2);
+        assertEq(ecosystemVesting1.start(), startTimestamp);
+        assertEq(ecosystemVesting1.duration(), 1);
+        // Ecosystem Vesting 2
+        assertEq(ecosystemVesting2.owner(), multisig2);
+        assertEq(ecosystemVesting2.start(), startTimestamp);
+        assertEq(ecosystemVesting2.duration(), 1);
     }
 
     function test_release() public {
-        address _akro = address(akroToken);
+        _logBalances();
 
-        _log_deploy_params();
+        console.log("Mint inflation");
+        _mintInflation();
+        _logBalances();
 
         // After six months
         vm.warp(1735732800);
         console.log("Release after 6 months,  timestamp: %s", block.timestamp);
-        _executeRelease(_akro);
+        _executeRelease();
+        _logBalances();
 
         // After twelve months
         vm.warp(1751500800);
         console.log("Release after 12 months, timestamp: %s", block.timestamp);
-        _executeRelease(_akro);
+        _executeRelease();
+        _logBalances();
+
+        // After two years
+        vm.warp(1783036800);
+        console.log("Release after 2 years, timestamp: %s", block.timestamp);
+        _executeRelease();
+        _logBalances();
 
         // After four years
         vm.warp(1846195200);
         console.log("Release after 4 years,   timestamp: %s", block.timestamp);
-        _executeRelease(_akro);
+        _executeRelease();
+        _logBalances();
     }
 
-    function _executeRelease(address _akro) internal {
-        _log_release(_akro);
+    function _mintInflation() internal {
+        vm.startPrank(oldMultisig);
+        akroToken.transferOwnership(multisig2);
+        vm.stopPrank();
 
-        teamVesting.release(_akro);
+        vm.startPrank(multisig2);
+        akroToken.claimOwnership();
+        akroToken.mint(address(teamVestingMain), 1_500_000_000);
+        akroToken.mint(address(teamVesting1), 250_000_000);
+        akroToken.mint(address(teamVesting2), 250_000_000);
+        akroToken.mint(address(foundationVesting), 900_000_000);
+        akroToken.mint(address(ecosystemVestingMain), 5_100_000_000);
+        akroToken.mint(address(ecosystemVesting1), 450_000_000);
+        akroToken.mint(address(ecosystemVesting2), 450_000_000);
+        akroToken.mint(multisig2, 100_000_000);
+        akroToken.mint(multisig2, 500_000_000);
+        akroToken.mint(multisig2, 500_000_000);
+        vm.stopPrank();
+    }
+
+    function _executeRelease() internal {
+        address _akro = address(akroToken);
+
+        vm.startPrank(multisig2);
+        teamVesting1.release(_akro);
+        teamVesting2.release(_akro);
+        ecosystemVesting1.release(_akro);
+        ecosystemVesting2.release(_akro);
+        vm.stopPrank();
+
+        vm.startPrank(multisig1);
+        teamVestingMain.release(_akro);
+        foundationVesting.release(_akro, 50000000);
         foundationVesting.release(_akro);
-        ecosystemVesting.release(_akro);
+        ecosystemVestingMain.release(_akro);
+        vm.stopPrank();
     }
 
-    function _log_deploy_params() internal pure {
-        console.log("");
-        console.log("Vesting params:");
-        console.log("  - beneficiary:      %s", beneficiary);
-        console.log("  - vesting start:    %s", startTimestamp);
-        console.log("  - vesting duration: %s", durationSeconds);
-        console.log("  - cliff duration:   %s", cliffSeconds);
-        console.log("");
-        console.log("Mint amounts:");
-        console.log("  - Team:       %s", teamVestingAmount);
-        console.log("  - Foundation: %s", foundationVestingAmount);
-        console.log("  - Ecosystem:  %s", ecosystemVestingAmount);
-        console.log("");
-    }
+    function _logBalances() internal view {
+        IERC20 akro = IERC20(address(akroToken));
 
-    function _log_release(address _akro) internal view {
-        uint256 teamReleseable = teamVesting.releasable(_akro);
-        uint256 foundationReleseable = foundationVesting.releasable(_akro);
-        uint256 ecosystemReleseable = ecosystemVesting.releasable(_akro);
-
-        console.log("  - Team:       %s", teamReleseable);
-        console.log("  - Foundation: %s", foundationReleseable);
-        console.log("  - Ecosystem:  %s", ecosystemReleseable);
+        console.log("");
+        console.log("Balances snapshot:");
+        console.log("- Multisig #1:           %s", akro.balanceOf(multisig1));
+        console.log("- Multisig #2:           %s", akro.balanceOf(multisig2));
+        console.log(
+            "- teamVestingMain:       %s",
+            akro.balanceOf(address(teamVestingMain))
+        );
+        console.log(
+            "- teamVesting1:          %s",
+            akro.balanceOf(address(teamVesting1))
+        );
+        console.log(
+            "- teamVesting2:          %s",
+            akro.balanceOf(address(teamVesting2))
+        );
+        console.log(
+            "- foundationVesting:     %s",
+            akro.balanceOf(address(foundationVesting))
+        );
+        console.log(
+            "- ecosystemVestingMain:  %s",
+            akro.balanceOf(address(ecosystemVestingMain))
+        );
+        console.log(
+            "- ecosystemVesting1:     %s",
+            akro.balanceOf(address(ecosystemVesting1))
+        );
+        console.log(
+            "- ecosystemVesting2:     %s",
+            akro.balanceOf(address(ecosystemVesting2))
+        );
         console.log("");
     }
 }
